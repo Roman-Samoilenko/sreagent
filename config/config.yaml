@@ -1,0 +1,87 @@
+llm:
+
+  provider: "openrouter"
+
+  open_router_models:
+    - "openrouter/auto:free"
+    - "nvidia/nemotron-3-ultra-550b-a55b:free"
+    - "poolside/laguna-s-2.1:free"
+    - "cohere/north-mini-code:free"
+  open_router_current_model: "openrouter/auto:free"
+
+
+repositories:
+  - "https://github.com/roman-samoilenko/agentsre"
+  - "https://github.com/Roman-Samoilenko/auth-service"
+
+mcps:
+  - name: "github"
+    url: ""
+  - name: "neo4j"
+    url: "bolt://localhost:7687"
+  - name: "qdrant"
+    url: "http://localhost:6333"
+
+agents:
+  prompt: "You are a helpful incident assistant."
+
+telegram:
+  token: ""
+  chat_id: 0
+
+scan_interval: "24h"
+max_react_steps: 10
+log_level: "debug"
+
+file_extensions:
+  - ".go"
+  - ".py"
+  - ".js"
+  - ".ts"
+  - ".java"
+  - ".cpp"
+  - ".c"
+  - ".rs"
+  - ".rb"
+  - ".php"
+  - ".cs"
+  - ".swift"
+  - ".kt"
+  - ".m"
+  - ".scala"
+  - ".pl"
+  - ".sh"
+  - ".html"
+  - ".css"
+  - ".json"
+  - ".xml"
+  - ".yaml"
+  - ".yml"
+  - ".toml"
+  - ".ini"
+  - ".conf"
+  - ".cfg"
+  - ".sql"
+  - ".gradle"
+  - ".groovy"
+  - ".md"
+  - ".txt"
+  - "Dockerfile"
+  - "Makefile"
+  - "Taskfile"
+
+
+exclude_dirs:
+  - ".git"
+  - "node_modules"
+  - "vendor"
+  - "__pycache__"
+  - "target"
+  - "dist"
+  - "build"
+  - "venv"
+  - "env"
+  - ".venv"
+  - ".env"
+  - ".idea"
+  - ".vscode"
