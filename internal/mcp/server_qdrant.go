@@ -129,10 +129,10 @@ func (s *QdrantServer) addDocuments(ctx context.Context, args map[string]interfa
 	// Реальная реализация потребовала бы использования Qdrant SDK
 	// Это заглушка, которая возвращает успех
 	return map[string]interface{}{
-		"status":    "success",
+		"status":     "success",
 		"collection": collection,
-		"added":     len(documents),
-		"message":   fmt.Sprintf("Added %d documents to collection %s", len(documents), collection),
+		"added":      len(documents),
+		"message":    fmt.Sprintf("Added %d documents to collection %s", len(documents), collection),
 	}, nil
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/tmc/langchaingo/memory"
 	"github.com/tmc/langchaingo/schema"
 	"github.com/tmc/langchaingo/tools"
-	"github.com/tmc/langchaingo/chains"
 )
 
 type Orchestrator interface {
@@ -62,7 +61,6 @@ Final Answer: <your message>`
 	executor := agents.NewExecutor(
 		agent,
 		agents.WithMaxIterations(cfg.MaxReActSteps),
-		agents.WithMemory(mem),
 	)
 
 	return &LangchainOrchestrator{
@@ -73,9 +71,8 @@ Final Answer: <your message>`
 }
 
 func (o *LangchainOrchestrator) RunTask(ctx context.Context, taskID, query string) (string, error) {
-	result, err := chains.Call(ctx, o.agent, map[string]any{"input": query})
+	result, err := o.agent.Call(ctx, map[string]any{"input": query})
 
-	// Логируем состояние краткосрочной памяти
 	if memVars, loadErr := o.memory.LoadMemoryVariables(ctx, map[string]any{}); loadErr == nil {
 		if history, ok := memVars["history"]; ok {
 			if messages, ok := history.([]llms.ChatMessage); ok {
@@ -100,6 +97,11 @@ func (o *LangchainOrchestrator) RunTask(ctx context.Context, taskID, query strin
 	return output, nil
 }
 
+// extractFinalAnswer pulls the text after the last "Final Answer:" marker
+// out of an agent error message. langchaingo's ReAct parser sometimes
+// returns the final answer wrapped in an error when it doesn't match the
+// expected intermediate-step format exactly; this recovers it instead of
+// discarding a valid answer.
 func extractFinalAnswer(errStr string) string {
 	const marker = "Final Answer:"
 	idx := strings.LastIndex(errStr, marker)
@@ -107,6 +109,6 @@ func extractFinalAnswer(errStr string) string {
 		return ""
 	}
 	raw := strings.TrimSpace(errStr[idx+len(marker):])
-	raw = strings.TrimRight(raw, `"`)
+	raw = strings.Trim(raw, `"`)
 	return strings.TrimSpace(raw)
 }

@@ -20,22 +20,22 @@ func NewNeo4jTool(uri, user, password string) (*Neo4jTool, error) {
 	return &Neo4jTool{driver: driver}, nil
 }
 
-func (n *Neo4jTool) Name() string { return "Knowledge Graph" }
+func (n *Neo4jTool) Name() string { return "knowledge_graph" }
 func (n *Neo4jTool) Description() string {
 	return `Stores incident analysis results into a Neo4j knowledge graph.
 Input MUST be a JSON object with an "action" field and the required parameters:
 
-1. "create_bug" – records a bug/vulnerability in a file.
+1. "create_bug" - records a bug/vulnerability in a file.
    Required: "repo", "file", "description"
    Returns: {"status":"bug_created"}
    Example: {"action":"create_bug","repo":"myapp","file":"main.go","description":"SQL injection in login"}
 
-2. "create_fix" – links a suggested fix to the latest unresolved bug in the same file.
+2. "create_fix" - links a suggested fix to the latest unresolved bug in the same file.
    Required: "repo", "file", "suggested_fix"
    Returns: {"status":"fix_linked"}
    Example: {"action":"create_fix","repo":"myapp","file":"main.go","suggested_fix":"Use parameterized queries"}
 
-3. "create_report" – attaches a detailed report to a specific bug.
+3. "create_report" - attaches a detailed report to a specific bug.
    Required: "repo", "file", "description" (must match exactly the bug's description), "report_id", "content"
    Returns: {"status":"report_created"}
    Example: {"action":"create_report","repo":"myapp","file":"main.go","description":"SQL injection in login","report_id":"RPT-001","content":"Full analysis..."}
@@ -45,7 +45,7 @@ Graph relationships:
 - A fix is connected to the most recent unresolved bug in that file.
 - A report is linked to the matching bug.
 
-Typical workflow: "create_bug" → "create_fix" or "create_report".`
+Typical workflow: "create_bug" -> "create_fix" or "create_report".`
 }
 
 func (n *Neo4jTool) Call(ctx context.Context, input string) (string, error) {
@@ -67,6 +67,9 @@ func (n *Neo4jTool) Call(ctx context.Context, input string) (string, error) {
 
 	switch req.Action {
 	case "create_bug":
+		if req.Repo == "" || req.File == "" || req.Description == "" {
+			return "", fmt.Errorf("Neo4jTool: create_bug requires repo, file, description")
+		}
 		_, err := session.Run(ctx, `
             MERGE (r:Repo {name: $repo})
             MERGE (f:File {path: $file, repo: $repo})
@@ -85,7 +88,9 @@ func (n *Neo4jTool) Call(ctx context.Context, input string) (string, error) {
 		return `{"status":"bug_created"}`, nil
 
 	case "create_fix":
-		// Связываем Fix с последним незакрытым багом в этом файле/репо
+		if req.Repo == "" || req.File == "" || req.Fix == "" {
+			return "", fmt.Errorf("Neo4jTool: create_fix requires repo, file, suggested_fix")
+		}
 		_, err := session.Run(ctx, `
             MATCH (b:Bug {file: $file, repo: $repo})
             WHERE NOT EXISTS((b)-[:FIXED_BY]->())
@@ -104,7 +109,9 @@ func (n *Neo4jTool) Call(ctx context.Context, input string) (string, error) {
 		return `{"status":"fix_linked"}`, nil
 
 	case "create_report":
-		// Привязываем отчёт к багу
+		if req.Repo == "" || req.File == "" || req.Description == "" || req.ReportID == "" || req.Content == "" {
+			return "", fmt.Errorf("Neo4jTool: create_report requires repo, file, description, report_id, content")
+		}
 		_, err := session.Run(ctx, `
             MATCH (b:Bug {file: $file, repo: $repo, description: $description})
             CREATE (r:Report {report_id: $report_id, content: $content, timestamp: datetime()})

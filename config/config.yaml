@@ -1,5 +1,4 @@
 llm:
-
   provider: "openrouter"
 
   open_router_models:
@@ -7,27 +6,36 @@ llm:
     - "nvidia/nemotron-3-ultra-550b-a55b:free"
     - "poolside/laguna-s-2.1:free"
     - "cohere/north-mini-code:free"
-  open_router_current_model: "openrouter/auto:free"
+    - "nvidia/nemotron-3-super-120b-a12b:free"
+    - "poolside/laguna-xs-2.1:free"
+    - "inclusionai/ling-3.0-tiny:free"
 
+  open_router_current_model: "cohere/north-mini-code:free"
 
 repositories:
   - "https://github.com/roman-samoilenko/agentsre"
   - "https://github.com/Roman-Samoilenko/auth-service"
 
-mcps:
-  - name: "github"
-    url: ""
-  - name: "neo4j"
-    url: "bolt://localhost:7687"
-  - name: "qdrant"
-    url: "http://localhost:6333"
+mcp:
+  github:
+    enabled: true
+    toolsets: []   
+  qdrant:
+    enabled: true
+    url: "http://localhost:3000/mcp"
+
+neo4j:
+  enabled: true
+  uri: "bolt://localhost:7687"
+  user: "neo4j"
 
 agents:
   prompt: "You are a helpful incident assistant."
 
 telegram:
   token: ""
-  chat_id: 0
+  whitelist: []
+  password: ""
 
 scan_interval: "24h"
 max_react_steps: 10
@@ -69,7 +77,6 @@ file_extensions:
   - "Dockerfile"
   - "Makefile"
   - "Taskfile"
-
 
 exclude_dirs:
   - ".git"

@@ -1,26 +1,24 @@
-FROM golang:1.26.5-alpine AS builder
-
-RUN apk add --no-cache git ca-certificates
-
-WORKDIR /app
+FROM golang:1.26 AS build
+WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
-
 COPY . .
+RUN CGO_ENABLED=0 go build -o /out/orchestrator ./cmd/orchestrator
 
-ARG APP_CMD=updater
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/${APP_CMD} ./cmd/${APP_CMD}
-
-# Финальный образ
-FROM alpine:3.19
-
-RUN apk add --no-cache ca-certificates tzdata
+FROM debian:bookworm-slim
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl && \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+    chmod a+r /etc/apt/keyrings/docker.asc && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" \
+      > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends docker-ce-cli && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=builder /app/bin/updater ./
+COPY --from=build /out/orchestrator ./orchestrator
+COPY config ./config
 
-COPY config/ ./config/
-COPY data/ ./data/
-
-ENTRYPOINT ["./updater"]
-CMD ["--config", "/app/config/config.docker.yaml"]
+ENTRYPOINT ["./orchestrator"]

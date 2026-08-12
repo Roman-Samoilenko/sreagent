@@ -30,7 +30,7 @@ func NewGitHubMCPTool(server *mcp.GitHubServer, toolName string) (tools.Tool, er
 }
 
 func (t *GitHubMCPTool) Name() string {
-	return fmt.Sprintf("github_%s", t.toolName) // чтобы избежать конфликтов с другими MCP
+	return fmt.Sprintf("github_%s", t.toolName)
 }
 
 func (t *GitHubMCPTool) Description() string {

@@ -8,109 +8,83 @@ import (
 	"github.com/roman-samoilenko/sreagent/internal/core"
 	"github.com/roman-samoilenko/sreagent/internal/llm"
 	"github.com/roman-samoilenko/sreagent/internal/mcp"
-	"github.com/roman-samoilenko/sreagent/internal/memory"
 	mytools "github.com/roman-samoilenko/sreagent/internal/tools"
 	"github.com/roman-samoilenko/sreagent/pkg/logger"
-	"github.com/tmc/langchaingo/llms/openai"
+	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/tools"
-	"github.com/tmc/langchaingo/vectorstores"
 )
 
 type App struct {
 	Config       *config.Config
 	Orchestrator core.Orchestrator
-	QdrantStore  vectorstores.VectorStore
 	MCPManager   *mcp.Manager
+
+	llmModel llms.Model
+	allTools []tools.Tool
 }
 
 func New(cfg *config.Config) (*App, error) {
 	ctx := context.Background()
 
-	// 1. Инициализируем LLM
+	// 1. LLM
 	llmModel, err := llm.NewLLM(&cfg.LLM)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LLM: %w", err)
 	}
 
-	// 2. Инициализируем MCP Manager
+	// 2. MCP Manager: connects to real, external MCP servers only.
 	mcpManager := mcp.NewManager()
 
-	// 3. Регистрируем GitHub Server
-	if cfg.GitHubToken != "" {
-		githubServer, err := mcp.NewGitHubServer(cfg.GitHubToken)
-		if err != nil {
-			logger.Warn("Failed to create GitHub server", "error", err)
+	if cfg.MCP.GitHub.Enabled {
+		if cfg.GitHubToken == "" {
+			logger.Warn("GitHub MCP enabled but GITHUB_TOKEN is not set; skipping")
 		} else {
-			if err := mcpManager.RegisterServer(githubServer); err != nil {
-				logger.Warn("Failed to register GitHub server", "error", err)
+			transport, err := mcp.GitHubDockerTransport(cfg.GitHubToken, cfg.MCP.GitHub.Toolsets)
+			if err != nil {
+				logger.Warn("Failed to build GitHub MCP transport", "error", err)
+			} else if err := mcpManager.Connect(ctx, "github", transport); err != nil {
+				logger.Warn("Failed to connect to GitHub MCP server", "error", err)
 			} else {
-				logger.Info("GitHub server registered")
+				logger.Info("Connected to GitHub MCP server")
 			}
 		}
 	}
 
-	// 4. Регистрируем Neo4j Server
-	if neo4jURL, err := cfg.GetMCPServerURL("neo4j"); err == nil {
-		neo4jServer, err := mcp.NewNeo4jServer(neo4jURL, "neo4j", cfg.Neo4jPassword)
+	if cfg.MCP.Qdrant.Enabled {
+		transport, err := mcp.QdrantHTTPTransport(cfg.MCP.Qdrant.URL)
 		if err != nil {
-			logger.Warn("Failed to create Neo4j server", "error", err)
+			logger.Warn("Failed to build Qdrant MCP transport", "error", err)
+		} else if err := mcpManager.Connect(ctx, "qdrant", transport); err != nil {
+			logger.Warn("Failed to connect to Qdrant MCP server", "error", err)
 		} else {
-			if err := mcpManager.RegisterServer(neo4jServer); err != nil {
-				logger.Warn("Failed to register Neo4j server", "error", err)
-			} else {
-				logger.Info("Neo4j server registered")
-			}
+			logger.Info("Connected to Qdrant MCP server", "url", cfg.MCP.Qdrant.URL)
 		}
 	}
 
-	// 5. Регистрируем Qdrant Server
-	var qdrantStore vectorstores.VectorStore
+	if err := mcpManager.LoadTools(ctx); err != nil {
+		logger.Warn("Failed to load tools from MCP servers", "error", err)
+	}
 
-	if qdrantURL, err := cfg.GetMCPServerURL("qdrant"); err == nil {
-		qdrantServer, err := mcp.NewQdrantServer(qdrantURL)
+	mcpTools := mcp.BuildTools(mcpManager)
+	logger.Info("Loaded MCP tools", "count", len(mcpTools))
+
+	// 3. Non-MCP tools: repo list helper + direct Neo4j knowledge-graph tool.
+	allTools := []tools.Tool{mytools.NewReposTool(cfg.Repositories)}
+	allTools = append(allTools, mcpTools...)
+
+	if cfg.Neo4j.Enabled {
+		neo4jTool, err := mytools.NewNeo4jTool(cfg.Neo4j.URI, cfg.Neo4j.User, cfg.Neo4jPassword)
 		if err != nil {
-			logger.Warn("Failed to create Qdrant server", "error", err)
+			logger.Warn("Failed to create Neo4j tool", "error", err)
 		} else {
-			if err := mcpManager.RegisterServer(qdrantServer); err != nil {
-				logger.Warn("Failed to register Qdrant server", "error", err)
-			} else {
-				logger.Info("Qdrant server registered")
-				// Пытаемся создать vector store если Qdrant доступен
-				embeddingClient, err := openai.New(
-					openai.WithToken(cfg.LLM.OpenRouterAPIKey),
-					openai.WithModel("text-embedding-ada-002"),
-					openai.WithBaseURL("https://api.openai.com/v1"),
-				)
-				if err == nil {
-					qdrantStore, err = memory.NewQdrantStore("incident_docs", embeddingClient, qdrantURL)
-					if err != nil {
-						logger.Warn("Failed to create Qdrant store", "error", err)
-					}
-				}
-			}
+			allTools = append(allTools, neo4jTool)
+			logger.Info("Neo4j knowledge-graph tool registered")
 		}
 	}
 
-	// 6. Инициализируем все серверы
-	if err := mcpManager.InitializeAll(ctx); err != nil {
-		logger.Warn("Failed to initialize some MCP servers", "error", err)
-	}
+	logger.Info("Registered tools (total)", "count", len(allTools))
 
-	// 7. Создаём инструменты из MCP
-	factory := mcp.NewMCPToolFactory(mcpManager)
-	mcpTools, err := factory.BuildTools(ctx)
-	if err != nil {
-		logger.Warn("Failed to build MCP tools", "error", err)
-		mcpTools = []tools.Tool{}
-	}
-
-	// Добавляем инструмент для получения списка репозиториев
-	reposTool := mytools.NewReposTool(cfg.Repositories)
-	allTools := append([]tools.Tool{reposTool}, mcpTools...)
-
-	logger.Info("Registered tools (including repos)", "count", len(allTools))
-
-	// 8. Создаём оркестратор с инструментами
+	// 4. Orchestrator
 	orchestrator, err := core.NewLangchainOrchestrator(llmModel, allTools, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create orchestrator: %w", err)
@@ -119,9 +93,14 @@ func New(cfg *config.Config) (*App, error) {
 	return &App{
 		Config:       cfg,
 		Orchestrator: orchestrator,
-		QdrantStore:  qdrantStore,
 		MCPManager:   mcpManager,
+		llmModel:     llmModel,
+		allTools:     allTools,
 	}, nil
+}
+
+func (a *App) NewOrchestrator() (core.Orchestrator, error) {
+	return core.NewLangchainOrchestrator(a.llmModel, a.allTools, a.Config)
 }
 
 func (a *App) Close() error {

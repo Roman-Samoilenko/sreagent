@@ -10,13 +10,18 @@ llm:
 repositories:
   - "github.com/roman-samoilenko/agentsre"
 
-mcps:
-  - name: "github"
-    url: "http://localhost:8182"
-  - name: "neo4j"
-    url: "bolt://neo4j:7687"
-  - name: "qdrant"
-    url: "http://qdrant:6333"
+mcp:
+  github:
+    enabled: true
+    toolsets: []
+  qdrant:
+    enabled: true
+    url: "http://qdrant-mcp:3000/mcp"
+
+neo4j:
+  enabled: true
+  uri: "bolt://neo4j:7687"
+  user: "neo4j"
 
 agents:
   prompt: "You are a helpful incident assistant."
@@ -66,7 +71,6 @@ file_extensions:
   - "Dockerfile"
   - "Makefile"
   - "Taskfile"
-
 
 exclude_dirs:
   - ".git"

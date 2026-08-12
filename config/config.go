@@ -12,7 +12,8 @@ import (
 type Config struct {
 	LLM             LLMConfig      `yaml:"llm"`
 	Repositories    []string       `yaml:"repositories"`
-	MCPServers      []MCPServer    `yaml:"mcps"`
+	MCP             MCPConfig      `yaml:"mcp"`
+	Neo4j           Neo4jConfig    `yaml:"neo4j"`
 	Agents          AgentsConfig   `yaml:"agents"`
 	Telegram        TelegramConfig `yaml:"telegram"`
 	ScanInterval    string         `yaml:"scan_interval"`
@@ -31,9 +32,29 @@ type LLMConfig struct {
 	OpenRouterAPIKey       string   `yaml:"-"`                         // только из env
 }
 
-type MCPServer struct {
-	Name string `yaml:"name"`
-	URL  string `yaml:"url"`
+// MCPConfig configures connections to real, external MCP servers.
+type MCPConfig struct {
+	// GitHub server, launched as a stdio subprocess:
+	//   docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server
+	GitHub MCPGitHubConfig `yaml:"github"`
+
+	Qdrant MCPQdrantConfig `yaml:"qdrant"`
+}
+
+type MCPGitHubConfig struct {
+	Enabled  bool     `yaml:"enabled"`
+	Toolsets []string `yaml:"toolsets"` // empty = server default toolset
+}
+
+type MCPQdrantConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	URL     string `yaml:"url"` // e.g. "http://qdrant-mcp:3000/mcp"
+}
+
+type Neo4jConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	URI     string `yaml:"uri"`
+	User    string `yaml:"user"`
 }
 
 type AgentsConfig struct {
@@ -44,7 +65,6 @@ type TelegramConfig struct {
 	Token     string   `yaml:"token"`
 	Whitelist []string `yaml:"whitelist"`
 	Password  string   `yaml:"password"`
-	// ChatID полностью удалён — бот получает его динамически из входящих сообщений
 }
 
 // Load загружает конфигурацию из YAML и переменных окружения
@@ -79,12 +99,10 @@ func Load(configPath string) (*Config, error) {
 }
 
 func (c *Config) overrideFromEnv() error {
-	// LLM API ключ
 	if key := os.Getenv("LLM_API_KEY_OPENROUTER"); key != "" {
 		c.LLM.OpenRouterAPIKey = key
 	}
 
-	// Telegram
 	if token := os.Getenv("TELEGRAM_TOKEN"); token != "" {
 		c.Telegram.Token = token
 	}
@@ -109,6 +127,10 @@ func (c *Config) overrideFromEnv() error {
 		c.Neo4jPassword = neo4jPassword
 	}
 
+	if qdrantMCPURL := os.Getenv("QDRANT_MCP_URL"); qdrantMCPURL != "" {
+		c.MCP.Qdrant.URL = qdrantMCPURL
+	}
+
 	return nil
 }
 
@@ -119,14 +141,4 @@ func MustLoad(configPath string) *Config {
 		panic(fmt.Sprintf("failed to load config: %v", err))
 	}
 	return cfg
-}
-
-// GetMCPServerURL возвращает URL для MCP сервера по его имени.
-func (c *Config) GetMCPServerURL(name string) (string, error) {
-	for _, srv := range c.MCPServers {
-		if strings.EqualFold(srv.Name, name) {
-			return srv.URL, nil
-		}
-	}
-	return "", fmt.Errorf("MCP server %q not found", name)
 }

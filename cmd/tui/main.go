@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -39,7 +38,7 @@ func main() {
 	defer application.Close()
 
 	if application.MCPManager != nil {
-		toolNames := application.MCPManager.GetToolNames(context.Background())
+		toolNames := application.MCPManager.ToolNames()
 		logger.Info("Available MCP tools", "count", len(toolNames))
 	}
 
