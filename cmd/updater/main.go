@@ -21,14 +21,14 @@ func main() {
 
 	cfg := config.MustLoad(*configPath)
 	logFile, err := os.OpenFile("logs/updater_debug.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "Cannot open log file: %v\n", err)
-        os.Exit(1)
-    }
-    defer logFile.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot open log file: %v\n", err)
+		os.Exit(1)
+	}
+	defer logFile.Close()
 
-    // Инициализируем глобальный логгер с выводом в файл
-    logger.Init(cfg.LogLevel, logFile)
+	// Инициализируем глобальный логгер с выводом в файл
+	logger.Init(cfg.LogLevel, logFile)
 
 	application, err := app.New(cfg)
 	if err != nil {
@@ -81,4 +81,3 @@ func main() {
 		}
 	}
 }
-

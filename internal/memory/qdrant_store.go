@@ -8,7 +8,11 @@ import (
 	"github.com/tmc/langchaingo/vectorstores/qdrant"
 )
 
-func NewQdrantStore(collectionName string, embedderClient embeddings.EmbedderClient, qdrantURL string) (vectorstores.VectorStore, error) {
+func NewQdrantStore(
+	collectionName string,
+	embedderClient embeddings.EmbedderClient,
+	qdrantURL string,
+) (vectorstores.VectorStore, error) {
 	embedder, err := embeddings.NewEmbedder(embedderClient)
 	if err != nil {
 		return nil, err

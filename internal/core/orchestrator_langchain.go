@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -29,7 +30,6 @@ func NewLangchainOrchestrator(
 	allTools []tools.Tool,
 	cfg *config.Config,
 ) (*LangchainOrchestrator, error) {
-
 	mem := memory.NewConversationBuffer()
 
 	repoList := "Monitored repositories:\n- " + strings.Join(cfg.Repositories, "\n- ")
@@ -90,7 +90,6 @@ func (o *LangchainOrchestrator) RunTask(ctx context.Context, taskID, query strin
 	}
 
 	if err != nil {
-
 		logger.Error("agent call failed", "task_id", taskID, "raw_error", err.Error())
 
 		if extracted := extractFinalAnswer(err.Error()); extracted != "" {
@@ -98,7 +97,10 @@ func (o *LangchainOrchestrator) RunTask(ctx context.Context, taskID, query strin
 		}
 
 		if isParseError(err) {
-			return "", fmt.Errorf("the model's response didn't follow the required Thought/Action or Final Answer format (see logs for the raw output); this usually means the current LLM isn't reliable enough for ReAct tool use, try a stronger model: %w", err)
+			return "", fmt.Errorf(
+				"the model's response didn't follow the required Thought/Action or Final Answer format (see logs for the raw output); this usually means the current LLM isn't reliable enough for ReAct tool use, try a stronger model: %w",
+				err,
+			)
 		}
 
 		return "", fmt.Errorf("agent call failed: %w", err)
@@ -106,7 +108,7 @@ func (o *LangchainOrchestrator) RunTask(ctx context.Context, taskID, query strin
 
 	output, ok := result["output"].(string)
 	if !ok {
-		return "", fmt.Errorf("unexpected output type")
+		return "", errors.New("unexpected output type")
 	}
 	return output, nil
 }

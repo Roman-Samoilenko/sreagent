@@ -147,7 +147,7 @@ func (m Model) View() string {
 	var b strings.Builder
 	// Заполняем пустые строки сверху, чтобы сообщения прижимались к низу
 	emptyLines := visibleHeight - len(visibleMsgs)
-	for i := 0; i < emptyLines; i++ {
+	for range emptyLines {
 		b.WriteString("\n")
 	}
 	for _, msg := range visibleMsgs {

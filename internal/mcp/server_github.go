@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/go-github/v63/github"
@@ -15,7 +16,7 @@ type GitHubServer struct {
 
 func NewGitHubServer(token string) (*GitHubServer, error) {
 	if token == "" {
-		return nil, fmt.Errorf("github token is required")
+		return nil, errors.New("github token is required")
 	}
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(context.Background(), ts)
@@ -57,7 +58,10 @@ func (s *GitHubServer) ListTools(ctx context.Context) ([]ToolDefinition, error) 
 				"properties": map[string]interface{}{
 					"owner": map[string]interface{}{"type": "string"},
 					"repo":  map[string]interface{}{"type": "string"},
-					"path":  map[string]interface{}{"type": "string", "description": "Optional: directory path (default root)"},
+					"path": map[string]interface{}{
+						"type":        "string",
+						"description": "Optional: directory path (default root)",
+					},
 				},
 				"required": []string{"owner", "repo"},
 			},
@@ -104,7 +108,11 @@ func (s *GitHubServer) ListTools(ctx context.Context) ([]ToolDefinition, error) 
 	}, nil
 }
 
-func (s *GitHubServer) CallTool(ctx context.Context, toolName string, arguments map[string]interface{}) (interface{}, error) {
+func (s *GitHubServer) CallTool(
+	ctx context.Context,
+	toolName string,
+	arguments map[string]interface{},
+) (interface{}, error) {
 	switch toolName {
 	case "get_repo":
 		return s.getRepo(ctx, arguments)
@@ -148,8 +156,6 @@ func (s *GitHubServer) listFiles(ctx context.Context, args map[string]interface{
 	}
 	path, _ := args["path"].(string)
 
-	// RepositoryContentGetOptions не поддерживает ListOptions,
-	// по умолчанию API возвращает до 100 элементов.
 	opts := &github.RepositoryContentGetOptions{}
 	fileContent, directoryContent, _, err := s.client.Repositories.GetContents(ctx, owner, repo, path, opts)
 	if err != nil {
@@ -178,7 +184,7 @@ func (s *GitHubServer) getFileContent(ctx context.Context, args map[string]inter
 	}
 	path, ok := args["path"].(string)
 	if !ok || path == "" {
-		return nil, fmt.Errorf("path is required")
+		return nil, errors.New("path is required")
 	}
 
 	fileContent, _, _, err := s.client.Repositories.GetContents(ctx, owner, repo, path, nil)
@@ -186,7 +192,7 @@ func (s *GitHubServer) getFileContent(ctx context.Context, args map[string]inter
 		return nil, fmt.Errorf("failed to get file content: %w", err)
 	}
 	if fileContent == nil {
-		return nil, fmt.Errorf("file not found")
+		return nil, errors.New("file not found")
 	}
 
 	content, err := fileContent.GetContent()
@@ -208,7 +214,7 @@ func (s *GitHubServer) searchCode(ctx context.Context, args map[string]interface
 	}
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
-		return nil, fmt.Errorf("query is required")
+		return nil, errors.New("query is required")
 	}
 
 	searchQuery := fmt.Sprintf("%s repo:%s/%s", query, owner, repo)
@@ -267,15 +273,15 @@ func (s *GitHubServer) listIssues(ctx context.Context, args map[string]interface
 	return result, nil
 }
 
-// parseOwnerRepo извлекает owner и repo из аргументов
+// parseOwnerRepo извлекает owner и repo из аргументов.
 func parseOwnerRepo(args map[string]interface{}) (string, string, error) {
 	owner, ok := args["owner"].(string)
 	if !ok || owner == "" {
-		return "", "", fmt.Errorf("owner is required")
+		return "", "", errors.New("owner is required")
 	}
 	repo, ok := args["repo"].(string)
 	if !ok || repo == "" {
-		return "", "", fmt.Errorf("repo is required")
+		return "", "", errors.New("repo is required")
 	}
 	return owner, repo, nil
 }

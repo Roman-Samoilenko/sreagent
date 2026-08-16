@@ -2,17 +2,18 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 )
 
-// QdrantServer реализует MCP Server для Qdrant
+// QdrantServer реализует MCP Server для Qdrant.
 type QdrantServer struct {
 	name      string
 	qdrantURL url.URL
 }
 
-// NewQdrantServer создаёт новый Qdrant MCP Server
+// NewQdrantServer создаёт новый Qdrant MCP Server.
 func NewQdrantServer(qdrantURL string) (*QdrantServer, error) {
 	u, err := url.Parse(qdrantURL)
 	if err != nil {
@@ -24,22 +25,22 @@ func NewQdrantServer(qdrantURL string) (*QdrantServer, error) {
 	}, nil
 }
 
-// Name возвращает имя сервера
+// Name возвращает имя сервера.
 func (s *QdrantServer) Name() string {
 	return s.name
 }
 
-// Initialize инициализирует подключение
+// Initialize инициализирует подключение.
 func (s *QdrantServer) Initialize(ctx context.Context) error {
 	// Попытаемся создать простое подключение к Qdrant
 	// В реальном приложении здесь должна быть проверка здоровья
 	if s.qdrantURL.Host == "" {
-		return fmt.Errorf("qdrant URL is not set")
+		return errors.New("qdrant URL is not set")
 	}
 	return nil
 }
 
-// ListTools возвращает список доступных инструментов
+// ListTools возвращает список доступных инструментов.
 func (s *QdrantServer) ListTools(ctx context.Context) ([]ToolDefinition, error) {
 	return []ToolDefinition{
 		{
@@ -98,8 +99,12 @@ func (s *QdrantServer) ListTools(ctx context.Context) ([]ToolDefinition, error) 
 	}, nil
 }
 
-// CallTool вызывает инструмент
-func (s *QdrantServer) CallTool(ctx context.Context, toolName string, arguments map[string]interface{}) (interface{}, error) {
+// CallTool вызывает инструмент.
+func (s *QdrantServer) CallTool(
+	ctx context.Context,
+	toolName string,
+	arguments map[string]interface{},
+) (interface{}, error) {
 	switch toolName {
 	case "add_documents":
 		return s.addDocuments(ctx, arguments)
@@ -114,16 +119,16 @@ func (s *QdrantServer) CallTool(ctx context.Context, toolName string, arguments 
 	}
 }
 
-// addDocuments добавляет документы в коллекцию
+// addDocuments добавляет документы в коллекцию.
 func (s *QdrantServer) addDocuments(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 	collection, ok := args["collection"].(string)
 	if !ok {
-		return nil, fmt.Errorf("collection is required")
+		return nil, errors.New("collection is required")
 	}
 
 	documents, ok := args["documents"].([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("documents must be an array")
+		return nil, errors.New("documents must be an array")
 	}
 
 	// Реальная реализация потребовала бы использования Qdrant SDK
@@ -136,16 +141,16 @@ func (s *QdrantServer) addDocuments(ctx context.Context, args map[string]interfa
 	}, nil
 }
 
-// search ищет документы по запросу
+// search ищет документы по запросу.
 func (s *QdrantServer) search(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 	collection, ok := args["collection"].(string)
 	if !ok {
-		return nil, fmt.Errorf("collection is required")
+		return nil, errors.New("collection is required")
 	}
 
 	query, ok := args["query"].(string)
 	if !ok {
-		return nil, fmt.Errorf("query is required")
+		return nil, errors.New("query is required")
 	}
 
 	limit := 10
@@ -170,11 +175,11 @@ func (s *QdrantServer) search(ctx context.Context, args map[string]interface{}) 
 	}, nil
 }
 
-// deleteCollection удаляет коллекцию
+// deleteCollection удаляет коллекцию.
 func (s *QdrantServer) deleteCollection(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 	collection, ok := args["collection"].(string)
 	if !ok {
-		return nil, fmt.Errorf("collection is required")
+		return nil, errors.New("collection is required")
 	}
 
 	return map[string]interface{}{
@@ -184,7 +189,7 @@ func (s *QdrantServer) deleteCollection(ctx context.Context, args map[string]int
 	}, nil
 }
 
-// listCollections получает список коллекций
+// listCollections получает список коллекций.
 func (s *QdrantServer) listCollections(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 	// Реальная реализация потребовала бы запроса к Qdrant API
 	return map[string]interface{}{

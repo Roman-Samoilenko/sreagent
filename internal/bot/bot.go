@@ -2,7 +2,9 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -30,7 +32,7 @@ func Start(cfg *config.Config) error {
 	defer application.Close()
 
 	if cfg.Telegram.Token == "" {
-		return fmt.Errorf("telegram token is not set")
+		return errors.New("telegram token is not set")
 	}
 
 	botAPI, err := tgbotapi.NewBotAPI(cfg.Telegram.Token)
@@ -68,7 +70,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 	if len(b.config.Telegram.Whitelist) > 0 {
 		allowed := false
 		for _, userName := range b.config.Telegram.Whitelist {
-			if userName == msg.From.UserName || userName == fmt.Sprintf("%d", userID) {
+			if userName == msg.From.UserName || userName == strconv.FormatInt(userID, 10) {
 				allowed = true
 			}
 		}

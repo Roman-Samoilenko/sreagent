@@ -1,9 +1,10 @@
 package mcp
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"os/exec"
+	"strings"
 
 	gosdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -21,7 +22,7 @@ import (
 // use the server's default toolset ("context,repos,issues,pull_requests,users").
 func GitHubDockerTransport(token string, toolsets []string) (gosdkmcp.Transport, error) {
 	if token == "" {
-		return nil, fmt.Errorf("mcp: github token is required")
+		return nil, errors.New("mcp: github token is required")
 	}
 
 	args := []string{"run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN"}
@@ -34,12 +35,14 @@ func GitHubDockerTransport(token string, toolsets []string) (gosdkmcp.Transport,
 	cmd.Env = append(os.Environ(), "GITHUB_PERSONAL_ACCESS_TOKEN="+token)
 	if len(toolsets) > 0 {
 		joined := ""
+		var joinedSb37 strings.Builder
 		for i, t := range toolsets {
 			if i > 0 {
-				joined += ","
+				joinedSb37.WriteString(",")
 			}
-			joined += t
+			joinedSb37.WriteString(t)
 		}
+		joined += joinedSb37.String()
 		cmd.Env = append(cmd.Env, "GITHUB_TOOLSETS="+joined)
 	}
 
@@ -52,7 +55,7 @@ func GitHubDockerTransport(token string, toolsets []string) (gosdkmcp.Transport,
 // include the "/mcp" path, e.g. "http://qdrant-mcp:3000/mcp".
 func QdrantHTTPTransport(url string) (gosdkmcp.Transport, error) {
 	if url == "" {
-		return nil, fmt.Errorf("mcp: qdrant mcp server url is required")
+		return nil, errors.New("mcp: qdrant mcp server url is required")
 	}
 	return &gosdkmcp.StreamableClientTransport{Endpoint: url}, nil
 }

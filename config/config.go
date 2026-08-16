@@ -67,7 +67,7 @@ type TelegramConfig struct {
 	Password  string   `yaml:"password"`
 }
 
-// Load загружает конфигурацию из YAML и переменных окружения
+// Load загружает конфигурацию из YAML и переменных окружения.
 func Load(configPath string) (*Config, error) {
 	envPath := ".env"
 
@@ -134,7 +134,7 @@ func (c *Config) overrideFromEnv() error {
 	return nil
 }
 
-// MustLoad загружает конфигурацию или паникует (для использования в main)
+// MustLoad загружает конфигурацию или паникует (для использования в main).
 func MustLoad(configPath string) *Config {
 	cfg, err := Load(configPath)
 	if err != nil {

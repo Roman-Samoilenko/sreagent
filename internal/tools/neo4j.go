@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
@@ -68,7 +69,7 @@ func (n *Neo4jTool) Call(ctx context.Context, input string) (string, error) {
 	switch req.Action {
 	case "create_bug":
 		if req.Repo == "" || req.File == "" || req.Description == "" {
-			return "", fmt.Errorf("Neo4jTool: create_bug requires repo, file, description")
+			return "", errors.New("Neo4jTool: create_bug requires repo, file, description")
 		}
 		_, err := session.Run(ctx, `
             MERGE (r:Repo {name: $repo})
@@ -89,7 +90,7 @@ func (n *Neo4jTool) Call(ctx context.Context, input string) (string, error) {
 
 	case "create_fix":
 		if req.Repo == "" || req.File == "" || req.Fix == "" {
-			return "", fmt.Errorf("Neo4jTool: create_fix requires repo, file, suggested_fix")
+			return "", errors.New("Neo4jTool: create_fix requires repo, file, suggested_fix")
 		}
 		_, err := session.Run(ctx, `
             MATCH (b:Bug {file: $file, repo: $repo})
@@ -110,7 +111,7 @@ func (n *Neo4jTool) Call(ctx context.Context, input string) (string, error) {
 
 	case "create_report":
 		if req.Repo == "" || req.File == "" || req.Description == "" || req.ReportID == "" || req.Content == "" {
-			return "", fmt.Errorf("Neo4jTool: create_report requires repo, file, description, report_id, content")
+			return "", errors.New("Neo4jTool: create_report requires repo, file, description, report_id, content")
 		}
 		_, err := session.Run(ctx, `
             MATCH (b:Bug {file: $file, repo: $repo, description: $description})

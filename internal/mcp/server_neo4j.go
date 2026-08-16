@@ -2,18 +2,19 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
-// Neo4jServer реализует MCP Server для Neo4j
+// Neo4jServer реализует MCP Server для Neo4j.
 type Neo4jServer struct {
 	name   string
 	driver neo4j.DriverWithContext
 }
 
-// NewNeo4jServer создаёт новый Neo4j MCP Server
+// NewNeo4jServer создаёт новый Neo4j MCP Server.
 func NewNeo4jServer(uri, username, password string) (*Neo4jServer, error) {
 	driver, err := neo4j.NewDriverWithContext(uri, neo4j.BasicAuth(username, password, ""))
 	if err != nil {
@@ -25,12 +26,12 @@ func NewNeo4jServer(uri, username, password string) (*Neo4jServer, error) {
 	}, nil
 }
 
-// Name возвращает имя сервера
+// Name возвращает имя сервера.
 func (s *Neo4jServer) Name() string {
 	return s.name
 }
 
-// Initialize инициализирует подключение
+// Initialize инициализирует подключение.
 func (s *Neo4jServer) Initialize(ctx context.Context) error {
 	session := s.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
 	defer session.Close(ctx)
@@ -39,7 +40,7 @@ func (s *Neo4jServer) Initialize(ctx context.Context) error {
 	return err
 }
 
-// ListTools возвращает список доступных инструментов
+// ListTools возвращает список доступных инструментов.
 func (s *Neo4jServer) ListTools(ctx context.Context) ([]ToolDefinition, error) {
 	return []ToolDefinition{
 		{
@@ -97,8 +98,12 @@ func (s *Neo4jServer) ListTools(ctx context.Context) ([]ToolDefinition, error) {
 	}, nil
 }
 
-// CallTool вызывает инструмент
-func (s *Neo4jServer) CallTool(ctx context.Context, toolName string, arguments map[string]interface{}) (interface{}, error) {
+// CallTool вызывает инструмент.
+func (s *Neo4jServer) CallTool(
+	ctx context.Context,
+	toolName string,
+	arguments map[string]interface{},
+) (interface{}, error) {
 	switch toolName {
 	case "create_bug":
 		return s.createBug(ctx, arguments)
@@ -113,7 +118,7 @@ func (s *Neo4jServer) CallTool(ctx context.Context, toolName string, arguments m
 	}
 }
 
-// createBug создаёт узел Bug в графе
+// createBug создаёт узел Bug в графе.
 func (s *Neo4jServer) createBug(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 	repo, _ := args["repo"].(string)
 	file, _ := args["file"].(string)
@@ -151,7 +156,7 @@ func (s *Neo4jServer) createBug(ctx context.Context, args map[string]interface{}
 	}, nil
 }
 
-// createFix создаёт узел Fix и связывает с последним Bug
+// createFix создаёт узел Fix и связывает с последним Bug.
 func (s *Neo4jServer) createFix(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 	repo, _ := args["repo"].(string)
 	file, _ := args["file"].(string)
@@ -189,7 +194,7 @@ func (s *Neo4jServer) createFix(ctx context.Context, args map[string]interface{}
 	}, nil
 }
 
-// createReport создаёт узел Report
+// createReport создаёт узел Report.
 func (s *Neo4jServer) createReport(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 	repo, _ := args["repo"].(string)
 	file, _ := args["file"].(string)
@@ -229,11 +234,11 @@ func (s *Neo4jServer) createReport(ctx context.Context, args map[string]interfac
 	}, nil
 }
 
-// query выполняет произвольный Cypher-запрос
+// query выполняет произвольный Cypher-запрос.
 func (s *Neo4jServer) query(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 	cypher, ok := args["cypher"].(string)
 	if !ok {
-		return nil, fmt.Errorf("cypher query is required")
+		return nil, errors.New("cypher query is required")
 	}
 
 	session := s.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
