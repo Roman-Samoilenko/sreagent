@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: main
+  pull_request:
+    branches: main
+
+jobs:
+  test-and-lint:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -v -race ./...
+
+      - name: Run golangci-lint with --fix (ignore errors)
+        id: lint
+        continue-on-error: true
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.12.2
+          args: --timeout=5m --fix
+          only-new-issues: false 
+
+      - name: Commit and push auto-fixed changes
+        if: steps.lint.outcome == 'success' || steps.lint.outcome == 'failure'
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email 'github-actions[bot]@users.noreply.github.com'
+            git add .
+            git commit -m "style: auto-fix by golangci-lint [skip ci]"
+            git push
+          fi
