@@ -7,30 +7,6 @@ import (
 	gosdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// newTestServer builds a minimal in-process MCP server exposing one "echo"
-// tool, for exercising Manager against the real MCP protocol without any
-// network or subprocess.
-func newTestServer(t *testing.T) *gosdkmcp.Server {
-	t.Helper()
-	srv := gosdkmcp.NewServer(&gosdkmcp.Implementation{Name: "test-server", Version: "0.0.1"}, nil)
-
-	type echoArgs struct {
-		Message string `json:"message"`
-	}
-	gosdkmcp.AddTool(srv, &gosdkmcp.Tool{
-		Name:        "echo",
-		Description: "Echoes the message argument back.",
-	}, func(_ context.Context, _ *gosdkmcp.CallToolRequest, args echoArgs) (*gosdkmcp.CallToolResult, any, error) {
-		return &gosdkmcp.CallToolResult{
-			Content: []gosdkmcp.Content{&gosdkmcp.TextContent{Text: "echo: " + args.Message}},
-		}, nil, nil
-	})
-
-	return srv
-}
-
-// connectTestManager wires a Manager to the in-process test server under the
-// given logical name, using in-memory transports (no docker, no network).
 func connectTestManager(t *testing.T, name string) *Manager {
 	t.Helper()
 	ctx := context.Background()
@@ -48,7 +24,6 @@ func connectTestManager(t *testing.T, name string) *Manager {
 	}
 	return m
 }
-
 func TestManager_LoadTools_And_CallTool(t *testing.T) {
 	ctx := context.Background()
 	m := connectTestManager(t, "test")
@@ -58,10 +33,28 @@ func TestManager_LoadTools_And_CallTool(t *testing.T) {
 	}
 
 	names := m.ToolNames()
-	if len(names) != 1 || names[0] != "test_echo" {
-		t.Fatalf("ToolNames() = %v, want [test_echo]", names)
+	if len(names) != 2 {
+		t.Fatalf("ToolNames() = %v, want 2 tools", names)
+	}
+	// Проверяем наличие обоих инструментов
+	foundEcho := false
+	foundPing := false
+	for _, name := range names {
+		if name == "test_echo" {
+			foundEcho = true
+		}
+		if name == "test_ping" {
+			foundPing = true
+		}
+	}
+	if !foundEcho {
+		t.Errorf("ToolNames() missing test_echo, got %v", names)
+	}
+	if !foundPing {
+		t.Errorf("ToolNames() missing test_ping, got %v", names)
 	}
 
+	// Проверяем вызов test_echo
 	handle, err := m.ToolHandle("test_echo")
 	if err != nil {
 		t.Fatalf("ToolHandle: %v", err)
@@ -78,7 +71,6 @@ func TestManager_LoadTools_And_CallTool(t *testing.T) {
 		t.Fatalf("CallTool result = %q, want %q", result, "echo: hi")
 	}
 }
-
 func TestManager_CallTool_UnknownTool(t *testing.T) {
 	ctx := context.Background()
 	m := connectTestManager(t, "test")
@@ -118,4 +110,33 @@ func TestManager_Close(t *testing.T) {
 	if len(m.ToolNames()) != 0 {
 		t.Fatal("expected no tools after Close")
 	}
+}
+
+func newTestServer(t *testing.T) *gosdkmcp.Server {
+	t.Helper()
+	srv := gosdkmcp.NewServer(&gosdkmcp.Implementation{Name: "test-server", Version: "0.0.1"}, nil)
+
+	type echoArgs struct {
+		Message string `json:"message"`
+	}
+	gosdkmcp.AddTool(srv, &gosdkmcp.Tool{
+		Name:        "echo",
+		Description: "Echoes the message argument back.",
+	}, func(_ context.Context, _ *gosdkmcp.CallToolRequest, args echoArgs) (*gosdkmcp.CallToolResult, any, error) {
+		return &gosdkmcp.CallToolResult{
+			Content: []gosdkmcp.Content{&gosdkmcp.TextContent{Text: "echo: " + args.Message}},
+		}, nil, nil
+	})
+
+	// Инструмент без аргументов для тестирования пустого ввода
+	gosdkmcp.AddTool(srv, &gosdkmcp.Tool{
+		Name:        "ping",
+		Description: "Returns pong",
+	}, func(_ context.Context, _ *gosdkmcp.CallToolRequest, _ struct{}) (*gosdkmcp.CallToolResult, any, error) {
+		return &gosdkmcp.CallToolResult{
+			Content: []gosdkmcp.Content{&gosdkmcp.TextContent{Text: "pong"}},
+		}, nil, nil
+	})
+
+	return srv
 }

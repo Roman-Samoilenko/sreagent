@@ -68,14 +68,12 @@ func TestLangchainTool_Call_ValidJSON(t *testing.T) {
 }
 
 func TestLangchainTool_Call_EmptyInput(t *testing.T) {
-	// Some tools (e.g. list_collections) take no arguments; an empty input
-	// string must not be treated as invalid JSON.
 	ctx := context.Background()
 	m := connectTestManager(t, "test")
 	if err := m.LoadTools(ctx); err != nil {
 		t.Fatalf("LoadTools: %v", err)
 	}
-	handle, err := m.ToolHandle("test_echo")
+	handle, err := m.ToolHandle("test_ping")
 	if err != nil {
 		t.Fatalf("ToolHandle: %v", err)
 	}
@@ -94,10 +92,14 @@ func TestBuildTools(t *testing.T) {
 	}
 
 	built := BuildTools(m)
-	if len(built) != 1 {
-		t.Fatalf("BuildTools() returned %d tools, want 1", len(built))
+	if len(built) != 2 {
+		t.Fatalf("BuildTools() returned %d tools, want 2", len(built))
 	}
-	if built[0].Name() != "test_echo" {
-		t.Fatalf("tool name = %q, want %q", built[0].Name(), "test_echo")
+	names := make(map[string]bool)
+	for _, tool := range built {
+		names[tool.Name()] = true
+	}
+	if !names["test_echo"] || !names["test_ping"] {
+		t.Errorf("BuildTools missing expected tools, got %v", names)
 	}
 }
