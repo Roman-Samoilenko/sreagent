@@ -30,10 +30,8 @@ func NewLangchainOrchestrator(
 	cfg *config.Config,
 ) (*LangchainOrchestrator, error) {
 
-	// Краткосрочная память – ConversationBuffer (без лимита токенов, проще и надёжнее)
 	mem := memory.NewConversationBuffer()
 
-	// Системный промпт с перечнем репозиториев и строгим форматом
 	repoList := "Monitored repositories:\n- " + strings.Join(cfg.Repositories, "\n- ")
 	prefix := cfg.Agents.Prompt + "\n\n" + repoList + `
 
@@ -41,16 +39,24 @@ You have access to the following tools:
 
 {{.tool_descriptions}}
 
-You MUST respond using the ReAct format:
-Thought: <your reasoning>
-Action: <tool name>
-Action Input: <JSON>
-Observation: <tool result>
-... (repeat if needed) ...
-Final Answer: <plain text answer to user>
+STRICT OUTPUT FORMAT. Every single response you produce MUST be one of the
+following two shapes, with no other text before or after:
 
-If you don't need a tool, output:
-Final Answer: <your message>`
+Thought: <your reasoning, one or two sentences>
+Action: <the exact tool name>
+Action Input: <a single valid JSON object, no markdown fences, no comments>
+
+OR, when you have the final answer and need no more tools:
+
+Thought: <your reasoning, one or two sentences>
+Final Answer: <plain text answer to the user>
+
+Rules:
+- Never omit the "Thought:" line.
+- Never write anything after "Final Answer:" other than the answer itself.
+- Never wrap Action Input in markdown code fences (no triple backticks).
+- Never call a tool that is not in the tool list above.
+- If you are not calling a tool, you MUST use "Final Answer:", not plain prose.`
 
 	agent := agents.NewConversationalAgent(
 		llm,
@@ -84,9 +90,17 @@ func (o *LangchainOrchestrator) RunTask(ctx context.Context, taskID, query strin
 	}
 
 	if err != nil {
+
+		logger.Error("agent call failed", "task_id", taskID, "raw_error", err.Error())
+
 		if extracted := extractFinalAnswer(err.Error()); extracted != "" {
 			return extracted, nil
 		}
+
+		if isParseError(err) {
+			return "", fmt.Errorf("the model's response didn't follow the required Thought/Action or Final Answer format (see logs for the raw output); this usually means the current LLM isn't reliable enough for ReAct tool use, try a stronger model: %w", err)
+		}
+
 		return "", fmt.Errorf("agent call failed: %w", err)
 	}
 
@@ -97,11 +111,10 @@ func (o *LangchainOrchestrator) RunTask(ctx context.Context, taskID, query strin
 	return output, nil
 }
 
-// extractFinalAnswer pulls the text after the last "Final Answer:" marker
-// out of an agent error message. langchaingo's ReAct parser sometimes
-// returns the final answer wrapped in an error when it doesn't match the
-// expected intermediate-step format exactly; this recovers it instead of
-// discarding a valid answer.
+func isParseError(err error) bool {
+	return strings.Contains(err.Error(), "unable to parse agent output")
+}
+
 func extractFinalAnswer(errStr string) string {
 	const marker = "Final Answer:"
 	idx := strings.LastIndex(errStr, marker)

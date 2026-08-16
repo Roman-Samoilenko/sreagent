@@ -20,5 +20,8 @@ RUN apt-get update && \
 WORKDIR /app
 COPY --from=build /out/orchestrator ./orchestrator
 COPY config ./config
+COPY --from=build /src/.env ./.env
+
+RUN mkdir -p /app/logs
 
 ENTRYPOINT ["./orchestrator"]

@@ -10,7 +10,7 @@ llm:
     - "poolside/laguna-xs-2.1:free"
     - "inclusionai/ling-3.0-tiny:free"
 
-  open_router_current_model: "cohere/north-mini-code:free"
+  open_router_current_model: "nvidia/nemotron-3-super-120b-a12b:free"
 
 repositories:
   - "https://github.com/roman-samoilenko/agentsre"
@@ -30,8 +30,20 @@ neo4j:
   user: "neo4j"
 
 agents:
-  prompt: "You are a helpful incident assistant."
-
+  prompt: |
+    You are a helpful assistant. You MUST respond ONLY in the following format:
+    
+    Thought: your reasoning here
+    Action: tool_name
+    Action Input: {"arg": "value"}
+    
+    OR
+    
+    Thought: your reasoning here
+    Final Answer: your final answer
+    
+    DO NOT use XML tags or markdown. DO NOT add any extra text.
+    
 telegram:
   token: ""
   whitelist: []
